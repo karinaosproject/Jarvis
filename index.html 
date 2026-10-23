@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jarvis – núcleo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0a1218;--panel:#101c24;--line:#1f3744;--ink:#d8ecec;--dim:#86a3aa;
+  --sig:#5ee0d0;--warm:#f2b45a;--off:#4a5f66;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Sora,system-ui,-apple-system,"Segoe UI",sans-serif;font-weight:300}
+body{min-height:100vh;line-height:1.5}
+.app{max-width:1080px;margin:0 auto;padding:20px 16px 32px;display:grid;gap:16px;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"head" "stage" "env" "console" "mods"}
+header{grid-area:head;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:1.9rem;font-weight:300;letter-spacing:.02em}
+.sub{color:var(--dim);font-size:.85rem}
+.stage{grid-area:stage;background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;position:relative}
+#core{display:block;width:100%;height:300px}
+.stage .tag{position:absolute;left:14px;bottom:10px;font-size:.78rem;color:var(--dim)}
+.clock{position:absolute;right:16px;top:12px;text-align:right;line-height:1.3}
+.clock b{display:block;font-size:1.5rem;font-weight:300;font-variant-numeric:tabular-nums;color:var(--sig)}
+.clock span{font-size:.78rem;color:var(--dim)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.panel h2{margin:0 0 10px;font-size:.95rem;font-weight:600}
+.env{grid-area:env}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row b{font-weight:400}
+.row span{color:var(--sig);font-weight:600}
+.bar{grid-column:1/-1;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--sig);border-radius:2px}
+.note{margin:10px 0 0;color:var(--dim);font-size:.78rem}
+.console{grid-area:console;display:flex;flex-direction:column;gap:10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;align-self:flex-start}
+.seg button{background:none;border:0;color:var(--dim);padding:7px 14px;font:inherit;font-size:.85rem;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--sig);color:#05211e;font-weight:600}
+#log{height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+.msg{max-width:88%;padding:8px 12px;border-radius:12px;font-size:.9rem;overflow-wrap:anywhere}
+.msg.me{align-self:flex-end;background:var(--line)}
+.msg.jv{align-self:flex-start;border:1px solid var(--line);color:var(--ink)}
+.send{display:flex;gap:8px}
+#inp{flex:1;min-width:0;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:inherit;font-size:.9rem}
+#go{background:var(--warm);color:#2a1c05;border:0;border-radius:8px;padding:0 16px;font:inherit;font-weight:600;cursor:pointer}
+button:focus-visible,#inp:focus-visible{outline:2px solid var(--warm);outline-offset:2px}
+.mods{grid-area:mods}
+.mod{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:.9rem}
+.mod:first-of-type{border-top:0}
+.mod i{width:8px;height:8px;border-radius:50%;background:var(--off);flex:none}
+.mod.on i{background:var(--sig);box-shadow:0 0 8px var(--sig)}
+.mod small{margin-left:auto;color:var(--dim)}
+@media(min-width:860px){
+  .app{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
+    grid-template-areas:"head head" "stage env" "console mods"}
+  #core{height:380px}
+  #log{height:220px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Jarvis</h1>
+    <span class="sub">Núcleo de testes com dados de demonstração</span>
+  </header>
+
+  <section class="stage" aria-label="Rede neural do núcleo">
+    <canvas id="core" role="img" aria-label="Rede neural animada que dispara quando você envia um comando"></canvas>
+    <div class="clock"><b id="hora">--:--:--</b><span id="data"></span></div>
+    <span class="tag" id="know">0 notas no núcleo</span>
+  </section>
+
+  <section class="panel env" aria-label="Ambiente">
+    <h2>Ambiente em Taubaté</h2>
+    <div class="row"><b>Temperatura</b><span id="vTemp">24 °C</span><div class="bar"><i id="bTemp" style="width:48%"></i></div></div>
+    <div class="row"><b>Umidade do ar</b><span id="vAr">68 %</span><div class="bar"><i id="bAr" style="width:68%"></i></div></div>
+    <div class="row"><b>Umidade do solo</b><span id="vSolo">41 %</span><div class="bar"><i id="bSolo" style="width:41%"></i></div></div>
+    <div class="row"><b>Temperatura do solo</b><span id="vSTemp">21 °C</span><div class="bar"><i id="bSTemp" style="width:52%"></i></div></div>
+    <div class="row"><b>pH do solo</b><span id="vPh">5,8</span><div class="bar"><i id="bPh" style="width:41%"></i></div></div>
+    <p class="note" id="envNote">Valores de exemplo. Para dados reais, rode o servidor local (server.py).</p>
+  </section>
+
+  <section class="panel console" aria-label="Console">
+    <div class="seg" role="group" aria-label="Modo">
+      <button id="mAsk" aria-pressed="true">Perguntar</button>
+      <button id="mTeach" aria-pressed="false">Ensinar</button>
+    </div>
+    <div id="log" aria-live="polite"></div>
+    <div class="send">
+      <input id="inp" type="text" autocomplete="off" placeholder="Pergunte sobre o clima ou o solo">
+      <button id="go">Enviar</button>
+    </div>
+  </section>
+
+  <section class="panel mods" aria-label="Módulos">
+    <h2>Módulos</h2>
+    <div class="mod on"><i></i>Clima<small>ativo</small></div>
+    <div class="mod on"><i></i>Solo<small>ativo</small></div>
+    <div class="mod on"><i></i>Tempo<small>ativo</small></div>
+    <div class="mod"><i></i>Voz<small>em espera</small></div>
+    <div class="mod"><i></i>Hardware<small>aguardando sensores</small></div>
+  </section>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+let mode="ask",notes=[],energy=0;
+try{notes=JSON.parse(localStorage.getItem("jv-notes")||"[]")}catch(e){notes=[]}
+
+/* ---------- rede neural ---------- */
+const cv=$("#core"),ctx=cv.getContext("2d");
+const MAXN=9;
+let nodes=[],edges=[],pulses=[],byKey={},edgeMap={},out={},W=0,H=0,now=0,cLine,cSig,cWarm;
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* cada nota ensinada faz nascer um neurônio; com a rede cheia, nascem conexões longas */
+function counts(k){
+  const c=[3,4,4,4,3],order=[2,1,3,2,1,3,0,4];let b=0,i=0,g=0;
+  while(b<k&&g<500){const l=order[i%order.length];i++;g++;if(c[l]<MAXN){c[l]++;b++}}
+  return {c:c,extra:Math.min(24,Math.max(0,k-b))};
+}
+function rebuild(animate){
+  const r=counts(notes.length),c=r.c,old=byKey,keys={};nodes=[];
+  c.forEach((n,l)=>{for(let i=0;i<n;i++){
+    const key=l+"-"+i,tx=W*(0.1+0.8*l/4),ty=H/2+(i-(n-1)/2)*H*0.1;
+    let o=old[key];
+    if(!o)o={key:key,l:l,x:tx,y:H/2,dx:tx,dy:H/2,g:animate?1:0,born:animate?now:-99999};
+    o.tx=tx;o.ty=ty;keys[key]=o;nodes.push(o);
+  }});
+  byKey=keys;
+  const oe=edgeMap,ne={};edges=[];out={};
+  const add=(a,b)=>{
+    const k=a.key+">"+b.key;if(ne[k])return;
+    let e=oe[k];if(!e)e={a:a,b:b,born:animate?now:-99999};
+    ne[k]=e;edges.push(e);(out[a.key]=out[a.key]||[]).push(e);
+  };
+  for(let l=0;l<4;l++)nodes.filter(n=>n.l===l).forEach(a=>nodes.filter(n=>n.l===l+1).forEach(b=>add(a,b)));
+  for(let j=0;j<r.extra;j++){const l=j%3;add(byKey[l+"-"+((j*2)%c[l])],byKey[(l+2)+"-"+((j*3+1)%c[l+2])])}
+  edgeMap=ne;pulses=pulses.filter(p=>ne[p.e.a.key+">"+p.e.b.key]);
+}
+function layout(){
+  const dpr=Math.min(devicePixelRatio||1,2),r=cv.getBoundingClientRect();
+  W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  cLine=css("--line");cSig=css("--sig");cWarm=css("--warm");
+  rebuild(false);
+}
+function spawn(e,s){pulses.push({e:e,t:0,s:s||(0.012+Math.random()*0.014)})}
+function fire(n){energy=Math.min(1,energy+n);if(!reduce)edges.forEach(e=>{if(e.a.l===0&&Math.random()<0.5)spawn(e)})}
+
+function frame(ts){
+  now=ts;ctx.clearRect(0,0,W,H);energy*=0.985;
+  const sw=reduce?0:3;
+  nodes.forEach((n,i)=>{
+    n.x+=(n.tx-n.x)*0.06;n.y+=(n.ty-n.y)*0.06;
+    n.dx=n.x+Math.sin(ts/1800+i)*sw;n.dy=n.y+Math.cos(ts/2100+i*1.7)*sw;n.g*=0.93;
+  });
+  ctx.lineWidth=1;ctx.strokeStyle=cLine;ctx.globalAlpha=0.7;ctx.beginPath();
+  const fresh=[];
+  edges.forEach(e=>{if(ts-e.born<1800){fresh.push(e);return}ctx.moveTo(e.a.dx,e.a.dy);ctx.lineTo(e.b.dx,e.b.dy)});
+  ctx.stroke();
+  ctx.strokeStyle=cWarm;
+  fresh.forEach(e=>{ctx.globalAlpha=0.8*Math.max(0,(ts-e.born)/1800);ctx.beginPath();ctx.moveTo(e.a.dx,e.a.dy);ctx.lineTo(e.b.dx,e.b.dy);ctx.stroke()});
+  ctx.globalAlpha=1;
+  const rate=(reduce?0:0.04)+energy*0.5;
+  if(edges.length&&Math.random()<rate)spawn(edges[Math.floor(Math.random()*edges.length)]);
+  for(let i=pulses.length-1;i>=0;i--){
+    const p=pulses[i],a=p.e.a,b=p.e.b;
+    p.t+=p.s*(1+energy*1.5);
+    if(p.t>=1){
+      b.g=1;pulses.splice(i,1);
+      const nx=out[b.key];
+      if(nx&&Math.random()<0.55)spawn(nx[Math.floor(Math.random()*nx.length)]);
+      continue;
+    }
+    ctx.beginPath();ctx.fillStyle=cSig;ctx.globalAlpha=0.9;
+    ctx.arc(a.dx+(b.dx-a.dx)*p.t,a.dy+(b.dy-a.dy)*p.t,2,0,6.283);ctx.fill();ctx.globalAlpha=1;
+  }
+  nodes.forEach(n=>{
+    const age=ts-n.born,newborn=age<1400;
+    ctx.beginPath();ctx.fillStyle=(newborn||n.l===4)?cWarm:cSig;ctx.globalAlpha=0.45+0.55*n.g;
+    ctx.arc(n.dx,n.dy,3+n.g*4,0,6.283);ctx.fill();
+    if(n.g>0.15){ctx.globalAlpha=n.g*0.25;ctx.beginPath();ctx.arc(n.dx,n.dy,10+n.g*6,0,6.283);ctx.fill()}
+    if(newborn){const q=age/1400;ctx.globalAlpha=(1-q)*0.8;ctx.strokeStyle=cWarm;ctx.beginPath();ctx.arc(n.dx,n.dy,4+q*36,0,6.283);ctx.stroke()}
+    ctx.globalAlpha=1;
+  });
+  requestAnimationFrame(frame);
+}
+addEventListener("resize",layout);
+layout();requestAnimationFrame(frame);
+
+/* ---------- tempo ---------- */
+const tz="America/Sao_Paulo";
+function parts(){const d=new Date();return{h:d.toLocaleTimeString("pt-BR",{timeZone:tz}),dt:d.toLocaleDateString("pt-BR",{timeZone:tz,weekday:"long",day:"numeric",month:"long",year:"numeric"})}}
+let lastMin="";
+function tick(){const p=parts();$("#hora").textContent=p.h;$("#data").textContent=p.dt;const m=p.h.slice(0,5);if(lastMin&&m!==lastMin)fire(0.25);lastMin=m}
+tick();setInterval(tick,1000);
+
+/* ---------- ambiente real ---------- */
+const AMB={temp:"24 °C",ar:"68 %",solo:"41 %",stemp:"21 °C",ph:"5,8",demo:true};
+const demo=()=>AMB.demo?" Valor de exemplo.":"";
+const fmt=(v,d)=>v.toLocaleString("pt-BR",{maximumFractionDigits:d});
+function lin(id,v,un,dec,pct){
+  if(v==null){$("#v"+id).textContent="—";$("#b"+id).style.width="2%";return "indisponível agora"}
+  const t=fmt(v,dec)+un;$("#v"+id).textContent=t;
+  $("#b"+id).style.width=Math.max(2,Math.min(100,pct))+"%";return t;
+}
+async function carregarAmbiente(){
+  try{
+    const r=await fetch("/api/ambiente");if(!r.ok)throw new Error("api");
+    const d=await r.json();
+    AMB.temp=lin("Temp",d.temp," °C",0,d.temp/40*100);
+    AMB.ar=lin("Ar",d.ar," %",0,d.ar);
+    AMB.solo=lin("Solo",d.solo_umid," %",0,d.solo_umid);
+    AMB.stemp=lin("STemp",d.solo_temp," °C",1,d.solo_temp/40*100);
+    AMB.ph=lin("Ph",d.ph,"",1,d.ph/14*100);
+    AMB.demo=false;
+    $("#envNote").textContent="Dados reais (Open-Meteo e SoilGrids), atualizados às "+d.atualizado+".";
+    fire(0.7);
+  }catch(e){/* sem servidor local: mantém os valores de demonstração */}
+}
+carregarAmbiente();setInterval(carregarAmbiente,600000);
+
+/* ---------- console ---------- */
+const log=$("#log"),inp=$("#inp");
+function say(t,who){
+  const d=document.createElement("div");d.className="msg "+who;d.textContent=t;
+  log.appendChild(d);log.scrollTop=log.scrollHeight;
+}
+function norm(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}
+function know(){const n=notes.length,p=Math.min(100,Math.round(n/51*100));$("#know").textContent=(n===1?"1 nota":n+" notas")+" no núcleo, consciência "+p+" %"}
+function answer(q){
+  const n=norm(q);
+  if(/\b(oi|ola|bom dia|boa tarde|boa noite)\b/.test(n))return "Olá, Karina. O núcleo está ativo.";
+  if(/umidade/.test(n)&&/solo/.test(n))return "Umidade do solo em Taubaté: "+AMB.solo+"."+demo();
+  if(/umidade/.test(n))return "Umidade do ar em Taubaté: "+AMB.ar+"."+demo();
+  if(/temperatura/.test(n)&&/solo/.test(n))return "Temperatura do solo em Taubaté: "+AMB.stemp+"."+demo();
+  if(/\bph\b|solo/.test(n))return "pH do solo em Taubaté: "+AMB.ph+"."+demo();
+  if(/temperatura|clima|tempo|calor|frio/.test(n))return "Taubaté está com "+AMB.temp+" e "+AMB.ar+" de umidade no ar."+demo();
+  if(/\bhoras?\b|\bdata\b|que dia|dia da semana|hoje/.test(n)){const p=parts(),h=/\bhoras?\b/.test(n),d=/\bdata\b|dia|hoje/.test(n);return ((d?"Hoje é "+p.dt+". ":"")+(h?"Agora são "+p.h+".":"")).trim()}
+  if(/status|modulo|ajuda/.test(n))return "Clima, solo e tempo estão ativos. Voz e hardware aguardam as próximas etapas. Use Ensinar para me alimentar com notas.";
+  const words=n.split(/\W+/).filter(w=>w.length>3);
+  let best=null,score=0;
+  notes.forEach(t=>{const nt=norm(t);let s=0;words.forEach(w=>{if(nt.includes(w))s++});if(s>score){score=s;best=t}});
+  if(best)return best;
+  return "Ainda não sei responder isso. Troque para Ensinar e me passe uma nota sobre o assunto.";
+}
+function send(){
+  const v=inp.value.trim();if(!v)return;
+  inp.value="";say(v,"me");fire(mode==="ask"?0.6:0.9);
+  if(mode==="teach"){
+    notes.push(v);
+    try{localStorage.setItem("jv-notes",JSON.stringify(notes))}catch(e){}
+    rebuild(true);know();setTimeout(()=>say("Nota salva. A rede cresceu e agora tem "+nodes.length+" neurônios e "+edges.length+" conexões.","jv"),450);
+  }else{
+    setTimeout(()=>say(answer(v),"jv"),450);
+  }
+}
+function setMode(m){
+  mode=m;
+  $("#mAsk").setAttribute("aria-pressed",m==="ask");
+  $("#mTeach").setAttribute("aria-pressed",m==="teach");
+  inp.placeholder=m==="ask"?"Pergunte sobre o clima ou o solo":"Escreva algo para o núcleo aprender";
+  inp.focus();
+}
+$("#mAsk").onclick=()=>setMode("ask");
+$("#mTeach").onclick=()=>setMode("teach");
+$("#go").onclick=send;
+inp.addEventListener("keydown",e=>{if(e.key==="Enter")send()});
+know();
+say("Núcleo ativo. Pergunte sobre o clima ou mude para Ensinar e me alimente do seu jeito.","jv");
+</script>
+</body>
+</html>
